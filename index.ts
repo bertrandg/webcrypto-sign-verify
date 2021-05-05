@@ -1,32 +1,32 @@
 import './style.css'
 
-document.getElementById('btnSign').addEventListener('click', () => signWithPrivate());
-document.getElementById('btnVerify').addEventListener('click', () => verifyWithPublic());
+document.getElementById('btnEncrypt').addEventListener('click', () => encryptWithPublic());
+document.getElementById('btnDecrypt').addEventListener('click', () => decryptWithPrivate());
 
-export function signWithPrivate() {
-  const privateStr = (document.getElementById('private') as any).value;
+export function encryptWithPublic() {
+  const publicStr = (document.getElementById('public') as any).value;
   const dataStr = (document.getElementById('data') as any).value;
 
-  importRsaKey(privateStr, 'PRIVATE', 'RSASSA-PKCS1-v1_5', 'SHA-256', ['sign'])
+  importRsaKey(publicStr, 'PUBLIC', 'RSA-OAEP', 'SHA-256', ['encrypt'])
     .then(key => {
-      console.log('private key to sign: ', key);
-      return signWithPrivateKey(key, dataStr);
+      console.log('public key to encrypt: ', key);
+      return encryptWithPublicKey(key, dataStr);
     })
     .then(d => {
-      console.log('signature generated: ', d.signatureString);
-      (document.getElementById('signature') as any).value = d.signatureString;
+      console.log('cyphertext generated: ', d.cyphertextString);
+      (document.getElementById('cyphertext') as any).value = d.cyphertextString;
     });
 }
 
-export function verifyWithPublic() {
-  const publicStr = (document.getElementById('public') as any).value;
+export function decryptWithPrivate() {
+  const privateStr = (document.getElementById('private') as any).value;
   const dataStr = (document.getElementById('data') as any).value;
   const signatureStr = (document.getElementById('signature') as any).value;
 
-  importRsaKey(publicStr, 'PUBLIC', 'RSASSA-PKCS1-v1_5', 'SHA-256', ['verify'])
+  importRsaKey(privateStr, 'PUBLIC', 'RSA-OAEP', 'SHA-256', ['decrypt'])
     .then(key => {
       console.log('public key to verify: ', key);
-      return verifyWithPublicKey(key, dataStr, signatureStr);
+      return decryptWithPrivateKey(key, dataStr, signatureStr);
     })
     .then(d => {
       (document.getElementById('verification') as any).innerHTML = d ? '<b style="color: green;">VERIFIED !!</b>' : '<b style="color: red;">VERIFICATION FAILED.. on va y arriver julien!! courage !!!</b>';
@@ -69,22 +69,22 @@ function base64ToArrayBuffer(b64: string): ArrayBuffer {
 
 ///////////////////////////////////////
 
-function signWithPrivateKey(key: CryptoKey, plaintext: string): Promise<{signatureBytes: Uint8Array, signatureString: string}> {
+function encryptWithPublicKey(key: CryptoKey, plaintext: string): Promise<{cyphertextBytes: Uint8Array, cyphertextString: string}> {
     const plaintextBytes = (new TextEncoder()).encode(plaintext);
 
-    return (window.crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, plaintextBytes) as Promise<ArrayBuffer>)
-        .then(signatureBytes => new Uint8Array(signatureBytes))
-        .then(signatureBytes => ({
-            signatureBytes,
-            signatureString: toHexString(signatureBytes),
+    return (window.crypto.subtle.encrypt('RSA-OAEP', key, plaintextBytes) as Promise<ArrayBuffer>)
+        .then(cyphertextBytes => new Uint8Array(cyphertextBytes))
+        .then(cyphertextBytes => ({
+            cyphertextBytes,
+            cyphertextString: toHexString(cyphertextBytes),
         }));
 }
 
-function verifyWithPublicKey(key: CryptoKey, plaintext: string, signature: string): Promise<boolean> {
-    const plaintextBytes = (new TextEncoder()).encode(plaintext);
+function decryptWithPrivateKey(key: CryptoKey, cyphertext: string, signature: string): Promise<boolean> {
+    const cyphertextBytes = (new TextEncoder()).encode(cyphertext);
     const signatureBytes = toByteArray(signature);
 
-    return (window.crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signatureBytes, plaintextBytes) as Promise<boolean>);
+    return (window.crypto.subtle.decrypt('RSA-OAEP', key, signatureBytes, cyphertextBytes) as Promise<boolean>);
 }
 
 ///////////////////////////////////////
