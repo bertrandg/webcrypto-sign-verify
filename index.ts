@@ -3,7 +3,7 @@ import './style.css'
 document.getElementById('btnEncrypt').addEventListener('click', () => encryptWithPublic());
 document.getElementById('btnDecrypt').addEventListener('click', () => decryptWithPrivate());
 
-export function encryptWithPublic() {
+function encryptWithPublic() {
   const publicStr = (document.getElementById('public') as any).value;
   const dataStr = (document.getElementById('data') as any).value;
 
@@ -21,7 +21,7 @@ export function encryptWithPublic() {
     });
 }
 
-export function decryptWithPrivate() {
+function decryptWithPrivate() {
   const privateStr = (document.getElementById('private') as any).value;
   const dataStr = (document.getElementById('cyphertext') as any).value;
 
@@ -44,7 +44,7 @@ export function decryptWithPrivate() {
 ////////////////////////////////////////////////
 
 
-export function importRsaKey(pem: string, type: 'PUBLIC' | 'PRIVATE', algorithmName: string, algorithmHash: string, keyUsages: Array<KeyUsage>): Promise<CryptoKey> {
+function importRsaKey(pem: string, type: 'PUBLIC' | 'PRIVATE', algorithmName: string, algorithmHash: string, keyUsages: Array<KeyUsage>): Promise<CryptoKey> {
     const key = pemToArrayBuffer(pem, type);
     const format = (type === 'PUBLIC') ? 'spki' : 'pkcs8';
 
@@ -76,8 +76,7 @@ function base64ToArrayBuffer(b64: string): ArrayBuffer {
 ///////////////////////////////////////
 
 function encryptWithPublicKey(key: CryptoKey, plaintextString: string): Promise<{cyphertextBytes: Uint8Array, cyphertextString: string}> {
-    // const plaintextBytes = (new TextEncoder()).encode(plaintextString);
-    const plaintextBytes = toByteArray(plaintextString);
+    const plaintextBytes = new TextEncoder().encode(plaintextString);
 
     return (window.crypto.subtle.encrypt({name: 'RSA-OAEP'}, key, plaintextBytes) as Promise<ArrayBuffer>)
         .then(cyphertextBytes => new Uint8Array(cyphertextBytes))
@@ -88,14 +87,13 @@ function encryptWithPublicKey(key: CryptoKey, plaintextString: string): Promise<
 }
 
 function decryptWithPrivateKey(key: CryptoKey, cyphertextString: string): Promise<{plaintextBytes: Uint8Array, plaintextString: string}> {
-    // const cyphertextBytes = (new TextEncoder()).encode(cyphertextString);
     const cyphertextBytes = toByteArray(cyphertextString);
 
     return (window.crypto.subtle.decrypt({name: 'RSA-OAEP'}, key, cyphertextBytes) as Promise<ArrayBuffer>)
         .then(plaintextBytes => new Uint8Array(plaintextBytes))
         .then(plaintextBytes => ({
             plaintextBytes,
-            plaintextString: toHexString(plaintextBytes),
+            plaintextString: new TextDecoder('utf-8').decode(plaintextBytes),
         }));
 }
 
