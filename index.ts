@@ -15,21 +15,27 @@ export function encryptWithPublic() {
     .then(d => {
       console.log('cyphertext generated: ', d.cyphertextString);
       (document.getElementById('cyphertext') as any).value = d.cyphertextString;
+    })
+    .catch(err => {
+      console.error('FAIL > ', err);
     });
 }
 
 export function decryptWithPrivate() {
   const privateStr = (document.getElementById('private') as any).value;
-  const dataStr = (document.getElementById('data') as any).value;
-  const signatureStr = (document.getElementById('signature') as any).value;
+  const dataStr = (document.getElementById('cyphertext') as any).value;
 
-  importRsaKey(privateStr, 'PUBLIC', 'RSA-OAEP', 'SHA-256', ['decrypt'])
+  importRsaKey(privateStr, 'PRIVATE', 'RSA-OAEP', 'SHA-256', ['decrypt'])
     .then(key => {
-      console.log('public key to verify: ', key);
-      return decryptWithPrivateKey(key, dataStr, signatureStr);
+      console.log('private key to decrypt: ', key);
+      return decryptWithPrivateKey(key, dataStr);
     })
     .then(d => {
-      (document.getElementById('verification') as any).innerHTML = d ? '<b style="color: green;">VERIFIED !!</b>' : '<b style="color: red;">VERIFICATION FAILED.. on va y arriver julien!! courage !!!</b>';
+      console.log('plaintext generated: ', d.plaintextString);
+      (document.getElementById('plaintext') as any).value = d.plaintextString;
+    })
+    .catch(err => {
+      console.error('FAIL (Maybe data to encrypt too long!) > ', err);
     });
 }
 
@@ -69,10 +75,11 @@ function base64ToArrayBuffer(b64: string): ArrayBuffer {
 
 ///////////////////////////////////////
 
-function encryptWithPublicKey(key: CryptoKey, plaintext: string): Promise<{cyphertextBytes: Uint8Array, cyphertextString: string}> {
-    const plaintextBytes = (new TextEncoder()).encode(plaintext);
+function encryptWithPublicKey(key: CryptoKey, plaintextString: string): Promise<{cyphertextBytes: Uint8Array, cyphertextString: string}> {
+    // const plaintextBytes = (new TextEncoder()).encode(plaintextString);
+    const plaintextBytes = toByteArray(plaintextString);
 
-    return (window.crypto.subtle.encrypt('RSA-OAEP', key, plaintextBytes) as Promise<ArrayBuffer>)
+    return (window.crypto.subtle.encrypt({name: 'RSA-OAEP'}, key, plaintextBytes) as Promise<ArrayBuffer>)
         .then(cyphertextBytes => new Uint8Array(cyphertextBytes))
         .then(cyphertextBytes => ({
             cyphertextBytes,
@@ -80,11 +87,16 @@ function encryptWithPublicKey(key: CryptoKey, plaintext: string): Promise<{cyphe
         }));
 }
 
-function decryptWithPrivateKey(key: CryptoKey, cyphertext: string, signature: string): Promise<boolean> {
-    const cyphertextBytes = (new TextEncoder()).encode(cyphertext);
-    const signatureBytes = toByteArray(signature);
+function decryptWithPrivateKey(key: CryptoKey, cyphertextString: string): Promise<{plaintextBytes: Uint8Array, plaintextString: string}> {
+    // const cyphertextBytes = (new TextEncoder()).encode(cyphertextString);
+    const cyphertextBytes = toByteArray(cyphertextString);
 
-    return (window.crypto.subtle.decrypt('RSA-OAEP', key, signatureBytes, cyphertextBytes) as Promise<boolean>);
+    return (window.crypto.subtle.decrypt({name: 'RSA-OAEP'}, key, cyphertextBytes) as Promise<ArrayBuffer>)
+        .then(plaintextBytes => new Uint8Array(plaintextBytes))
+        .then(plaintextBytes => ({
+            plaintextBytes,
+            plaintextString: toHexString(plaintextBytes),
+        }));
 }
 
 ///////////////////////////////////////
@@ -105,7 +117,7 @@ function toByteArray(hexString: string): Uint8Array {
 
 ///////////////////////////////////////
 
-(document.getElementById('data') as any).value = '{"name":"sdvsdv","access":{"key_id":65,"key":{"value":"296d77d30dac772275bb4e4ee542183efa1b0293c14e51d338619bb50d14fdd37d44b3b8506fb8abb3aaa10f293ba569348f3a1e21589a42865ec4bb40bd31789b663f165b0171b63fb6d487d4e08bbb3b439e35db8818c3cdaaa99108fad116f8fe5f05d59084bd556dd225c51e25844f74fefe9bb8cb8b540c07a4c35cdc3c91e341152584c58e756c888ea74a6ebac3325060520ccd255da7712eca6c9eb8f6b842516ecd7a4b3453ebbd4d35aad46c429a9defc49f0d4d96346f56982a5f8ff4337cb851ceaab6ae5d3cd763e90c4e6720d42984e6315fd240dcd3e2df82b4a5c85a2a173cdbef29d414920689870e21e54351d134ed43be49a12ac1369a","meta":{"alg":"AES-GCM","length":256}}}}';
+(document.getElementById('data') as any).value = '{"name":"sdvsdv","access":{"key_id":65,"key":{"value":"qqqq","meta":{"alg":"AES-GCM","length":256}}}}';
 
 (document.getElementById('public') as any).value = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvf0+AoPvhtTh/gDst88u
