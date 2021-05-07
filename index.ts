@@ -1,41 +1,35 @@
 import './style.css'
 
-document.getElementById('btnEncrypt').addEventListener('click', () => encryptWithPublic());
-document.getElementById('btnDecrypt').addEventListener('click', () => decryptWithPrivate());
+document.getElementById('btnSign').addEventListener('click', () => signWithPrivate());
+document.getElementById('btnVerify').addEventListener('click', () => verifyWithPublic());
 
-function encryptWithPublic() {
-  const publicStr = (document.getElementById('public') as any).value;
+export function signWithPrivate() {
+  const privateStr = (document.getElementById('private') as any).value;
   const dataStr = (document.getElementById('data') as any).value;
 
-  importRsaKey(publicStr, 'PUBLIC', 'RSA-OAEP', 'SHA-256', ['encrypt'])
+  importRsaKey(privateStr, 'PRIVATE', 'RSASSA-PKCS1-v1_5', 'SHA-256', ['sign'])
     .then(key => {
-      console.log('public key to encrypt: ', key);
-      return encryptWithPublicKey(key, dataStr);
+      console.log('private key to sign: ', key);
+      return signWithPrivateKey(key, dataStr);
     })
     .then(d => {
-      console.log('cyphertext generated: ', d.cyphertextString);
-      (document.getElementById('cyphertext') as any).value = d.cyphertextString;
-    })
-    .catch(err => {
-      console.error('FAIL > ', err);
+      console.log('signature generated: ', d.signatureString);
+      (document.getElementById('signature') as any).value = d.signatureString;
     });
 }
 
-function decryptWithPrivate() {
-  const privateStr = (document.getElementById('private') as any).value;
-  const dataStr = (document.getElementById('cyphertext') as any).value;
+export function verifyWithPublic() {
+  const publicStr = (document.getElementById('public') as any).value;
+  const dataStr = (document.getElementById('data') as any).value;
+  const signatureStr = (document.getElementById('signature') as any).value;
 
-  importRsaKey(privateStr, 'PRIVATE', 'RSA-OAEP', 'SHA-256', ['decrypt'])
+  importRsaKey(publicStr, 'PUBLIC', 'RSASSA-PKCS1-v1_5', 'SHA-256', ['verify'])
     .then(key => {
-      console.log('private key to decrypt: ', key);
-      return decryptWithPrivateKey(key, dataStr);
+      console.log('public key to verify: ', key);
+      return verifyWithPublicKey(key, dataStr, signatureStr);
     })
     .then(d => {
-      console.log('plaintext generated: ', d.plaintextString);
-      (document.getElementById('plaintext') as any).value = d.plaintextString;
-    })
-    .catch(err => {
-      console.error('FAIL (Maybe data to encrypt too long!) > ', err);
+      (document.getElementById('verification') as any).innerHTML = d ? '<b style="color: green;">VERIFIED !!</b>' : '<b style="color: red;">VERIFICATION FAILED.. on va y arriver julien!! courage !!!</b>';
     });
 }
 
@@ -44,7 +38,7 @@ function decryptWithPrivate() {
 ////////////////////////////////////////////////
 
 
-function importRsaKey(pem: string, type: 'PUBLIC' | 'PRIVATE', algorithmName: string, algorithmHash: string, keyUsages: Array<KeyUsage>): Promise<CryptoKey> {
+export function importRsaKey(pem: string, type: 'PUBLIC' | 'PRIVATE', algorithmName: string, algorithmHash: string, keyUsages: Array<KeyUsage>): Promise<CryptoKey> {
     const key = pemToArrayBuffer(pem, type);
     const format = (type === 'PUBLIC') ? 'spki' : 'pkcs8';
 
@@ -75,26 +69,22 @@ function base64ToArrayBuffer(b64: string): ArrayBuffer {
 
 ///////////////////////////////////////
 
-function encryptWithPublicKey(key: CryptoKey, plaintextString: string): Promise<{cyphertextBytes: Uint8Array, cyphertextString: string}> {
-    const plaintextBytes = new TextEncoder().encode(plaintextString);
+function signWithPrivateKey(key: CryptoKey, plaintext: string): Promise<{signatureBytes: Uint8Array, signatureString: string}> {
+    const plaintextBytes = (new TextEncoder()).encode(plaintext);
 
-    return (window.crypto.subtle.encrypt({name: 'RSA-OAEP'}, key, plaintextBytes) as Promise<ArrayBuffer>)
-        .then(cyphertextBytes => new Uint8Array(cyphertextBytes))
-        .then(cyphertextBytes => ({
-            cyphertextBytes,
-            cyphertextString: toHexString(cyphertextBytes),
+    return (window.crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, plaintextBytes) as Promise<ArrayBuffer>)
+        .then(signatureBytes => new Uint8Array(signatureBytes))
+        .then(signatureBytes => ({
+            signatureBytes,
+            signatureString: toHexString(signatureBytes),
         }));
 }
 
-function decryptWithPrivateKey(key: CryptoKey, cyphertextString: string): Promise<{plaintextBytes: Uint8Array, plaintextString: string}> {
-    const cyphertextBytes = toByteArray(cyphertextString);
+function verifyWithPublicKey(key: CryptoKey, plaintext: string, signature: string): Promise<boolean> {
+    const plaintextBytes = (new TextEncoder()).encode(plaintext);
+    const signatureBytes = toByteArray(signature);
 
-    return (window.crypto.subtle.decrypt({name: 'RSA-OAEP'}, key, cyphertextBytes) as Promise<ArrayBuffer>)
-        .then(plaintextBytes => new Uint8Array(plaintextBytes))
-        .then(plaintextBytes => ({
-            plaintextBytes,
-            plaintextString: new TextDecoder('utf-8').decode(plaintextBytes),
-        }));
+    return (window.crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signatureBytes, plaintextBytes) as Promise<boolean>);
 }
 
 ///////////////////////////////////////
@@ -115,7 +105,7 @@ function toByteArray(hexString: string): Uint8Array {
 
 ///////////////////////////////////////
 
-(document.getElementById('data') as any).value = '{"name":"sdvsdv","access":{"key_id":65,"key":{"value":"qqqq","meta":{"alg":"AES-GCM","length":256}}}}';
+(document.getElementById('data') as any).value = '{"name":"sdvsdv","access":{"key_id":65,"key":{"value":"296d77d30dac772275bb4e4ee542183efa1b0293c14e51d338619bb50d14fdd37d44b3b8506fb8abb3aaa10f293ba569348f3a1e21589a42865ec4bb40bd31789b663f165b0171b63fb6d487d4e08bbb3b439e35db8818c3cdaaa99108fad116f8fe5f05d59084bd556dd225c51e25844f74fefe9bb8cb8b540c07a4c35cdc3c91e341152584c58e756c888ea74a6ebac3325060520ccd255da7712eca6c9eb8f6b842516ecd7a4b3453ebbd4d35aad46c429a9defc49f0d4d96346f56982a5f8ff4337cb851ceaab6ae5d3cd763e90c4e6720d42984e6315fd240dcd3e2df82b4a5c85a2a173cdbef29d414920689870e21e54351d134ed43be49a12ac1369a","meta":{"alg":"AES-GCM","length":256}}}}';
 
 (document.getElementById('public') as any).value = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvf0+AoPvhtTh/gDst88u
